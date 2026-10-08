@@ -1,0 +1,15 @@
+---
+description: EGM Trading visual rules (Industry design system)
+alwaysApply: true
+---
+
+- Mobile-first: ~80% of traffic is mobile. Design at 390px, then add `sm:` / `md:` / `lg:`. Tap targets ≥ 44px; inputs use 16px text.
+- Colours come only from the tokens in `app/globals.css`: `paper`, `surface`, `ink`, `line`, `steel` + `steel-100…900`. No other hues.
+- Small text in the accent uses `text-steel-700`, not `text-steel`.
+- Headings: `font-heading` (Barlow Condensed 600), uppercase. Body: Barlow.
+- Square corners everywhere — never `rounded-*`.
+- Cards, framed images and panels use `<Blueprint>` (hairline border + four "+" corner marks). Cards have no background fill.
+- The solid steel primary button (`btn.primary`) is the one filled object; reserve it for the main action in each block.
+- Icons: Lucide, stroke-width 1.5.
+- Reuse the recipes in `lib/ui.ts` (`btn`, `kicker`, `container`, `duotone`) instead of inventing new ones.
+- Every conversion action routes into the chat assistant via `useChat().open(...)` or `<ChatButton>`.

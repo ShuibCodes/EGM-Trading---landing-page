@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Industry design system tokens — the only colours, fonts and shadows the site uses. */
+@theme {
+  --color-paper: #f2f2f3;
+  --color-surface: #e9e9ea;
+  --color-ink: #1d1f20;
+  --color-line: color-mix(in srgb, #1d1f20 16%, transparent);
+
+  --color-steel: #5980a6;
+  --color-steel-100: #eef6ff;
+  --color-steel-200: #d6ebff;
+  --color-steel-300: #b5d9fd;
+  --color-steel-400: #94bce3;
+  --color-steel-500: #749dc4;
+  --color-steel-600: #597ea3;
+  --color-steel-700: #416180;
+  --color-steel-800: #2c455d;
+  --color-steel-900: #1d2d3d;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2b2b2d 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2b2b2d 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
+}
+
+@theme inline {
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-heading: var(--font-barlow-condensed), system-ui, sans-serif;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    text-wrap: pretty;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, h3 { @apply font-heading font-semibold; }
+  a { @apply text-steel-700 hover:text-steel-800; }
+  :focus-visible { outline: 2px solid var(--color-steel); outline-offset: 2px; }
+  ::selection { background: var(--color-steel-200); }
+}
