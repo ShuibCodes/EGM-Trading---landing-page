@@ -1,6 +1,7 @@
+import { site } from "@/lib/site";
 import { btn, container, cx, kicker } from "@/lib/ui";
 import { Blueprint } from "./ui/Blueprint";
-import { ChatButton } from "./Chat";
+import { PhoneIcon } from "./ui/icons";
 
 const steps = [
   { n: "01", title: "Tell us the car", body: "Reg or make and model is enough." },
@@ -25,7 +26,14 @@ export function Sell() {
           </div>
         ))}
         <div className="flex items-center p-5">
-          <ChatButton mode="sell" className={cx(btn.base, btn.primary, "min-h-[50px] w-full text-base")}>Get an offer</ChatButton>
+          <a
+            href={site.phoneHref}
+            aria-label={`Send an enquiry about selling your car — call ${site.phone}`}
+            className={cx(btn.base, btn.primary, "min-h-[50px] w-full text-base")}
+          >
+            <PhoneIcon size={18} />
+            Send an enquiry
+          </a>
         </div>
       </Blueprint>
     </section>
