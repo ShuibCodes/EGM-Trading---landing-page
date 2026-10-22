@@ -1,6 +1,7 @@
 import Image from "next/image";
+import { site } from "@/lib/site";
 import { btn, cx, duotone } from "@/lib/ui";
-import { ChatButton } from "./Chat";
+import { PhoneIcon } from "./ui/icons";
 
 export function Hero() {
   return (
@@ -18,16 +19,18 @@ export function Hero() {
           <span className="block">Bought &amp; sold in London.</span>
         </h1>
         <p className="mt-4 max-w-[42ch] text-[17px] leading-normal md:text-lg">
-          Hand-picked stock at straight prices. See one you like? Request a callback in under a minute.
+          Hand-picked stock at straight prices. See one you like? Send an enquiry or make an offer.
         </p>
         <div className="mt-6 flex flex-wrap gap-2.5">
           <a href="#stock" className={cx(btn.base, btn.primary, btn.lg, "max-w-[260px] flex-[1_1_160px]")}>View stock</a>
-          <ChatButton
-            mode="sell"
-            className={cx(btn.base, btn.lg, "max-w-[260px] flex-[1_1_160px] border-paper/60 text-paper hover:bg-paper/10 active:bg-paper/20")}
+          <a
+            href={site.phoneHref}
+            aria-label={`Send an enquiry — call ${site.phone}`}
+            className={cx(btn.base, btn.lg, "max-w-[260px] flex-[1_1_160px] border-paper/60 text-paper hover:bg-paper/10 hover:text-paper active:bg-paper/20")}
           >
-            Sell your car
-          </ChatButton>
+            <PhoneIcon size={18} />
+            Send an enquiry
+          </a>
         </div>
       </div>
     </section>

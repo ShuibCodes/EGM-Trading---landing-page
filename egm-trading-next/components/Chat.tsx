@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { callbackPayload, registeredCallbackMessage } from "@/lib/callback";
 import { type Car, carMeta } from "@/lib/cars";
 import { normalizeUkPhone } from "@/lib/phone";
+import { site } from "@/lib/site";
 import { btn, cx } from "@/lib/ui";
 import { ChatIcon, SendIcon, XIcon } from "./ui/icons";
 
@@ -195,7 +196,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     <ChatCtx.Provider value={{ open }}>
       {children}
 
-      {!isOpen && (
+      {site.chat && !isOpen && (
         <button
           type="button"
           onClick={() => open()}

@@ -9,7 +9,7 @@ export function Stock() {
       <div className="mb-4 mt-3 h-px bg-line" />
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-[clamp(32px,7vw,48px)] uppercase leading-none">Today&apos;s cars</h2>
-        <span className="text-[15px] text-ink/70">Swipe photos · tap to request a callback</span>
+        <span className="text-[15px] text-ink/70">Swipe photos · tap to enquire or make an offer</span>
       </div>
       <div className="mt-8 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         {cars.map((car, i) => (

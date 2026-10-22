@@ -2,7 +2,6 @@ import { site } from "@/lib/site";
 import { btn, cx } from "@/lib/ui";
 import { PhoneIcon } from "./ui/icons";
 import { Logo } from "./ui/Logo";
-import { ChatButton } from "./Chat";
 
 export function Nav() {
   return (
@@ -13,7 +12,6 @@ export function Nav() {
         </a>
         <div className="flex items-center gap-2">
           <a href="#stock" className={cx(btn.base, btn.ghost, btn.md)}>Stock</a>
-          <ChatButton mode="sell" className={cx(btn.base, btn.ghost, btn.md, "max-md:hidden whitespace-nowrap")}>Sell your car</ChatButton>
           <a href={site.phoneHref} aria-label={`Call ${site.name}`} className={cx(btn.base, btn.secondary, btn.md)}>
             <PhoneIcon size={18} />
             <span className="whitespace-nowrap">Call<span className="hidden md:inline"> {site.phone}</span></span>

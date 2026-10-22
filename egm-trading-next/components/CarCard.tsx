@@ -3,10 +3,10 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { type Car, carMeta } from "@/lib/cars";
+import { site } from "@/lib/site";
 import { btn, cx } from "@/lib/ui";
 import { Blueprint } from "./ui/Blueprint";
 import { ChevronLeft, ChevronRight, PhoneIcon } from "./ui/icons";
-import { useChat } from "./Chat";
 
 const arrow =
   "absolute top-1/2 grid size-10 -translate-y-1/2 cursor-pointer place-items-center bg-paper/90 text-ink transition-opacity disabled:opacity-35";
@@ -14,7 +14,6 @@ const arrow =
 export function CarCard({ car, priority }: { car: Car; priority?: boolean }) {
   const track = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
-  const { open } = useChat();
   const n = car.images.length;
 
   const go = (d: number) => {
@@ -83,13 +82,21 @@ export function CarCard({ car, priority }: { car: Car; priority?: boolean }) {
         </div>
         <span className="text-sm text-ink/70">{car.detail}</span>
         <div className="mt-auto flex flex-col gap-1.5 pt-3.5">
-          <button type="button" onClick={() => open({ car })} className={cx(btn.base, btn.primary, "min-h-[50px] w-full text-base")}>
+          <a
+            href={site.phoneHref}
+            aria-label={`Send an enquiry about the ${car.year} ${car.name} — call ${site.phone}`}
+            className={cx(btn.base, btn.primary, "min-h-[50px] w-full text-base")}
+          >
             <PhoneIcon size={18} />
-            Request a callback
-          </button>
-          <button type="button" onClick={() => open({ car, ask: true })} className={cx(btn.base, btn.ghost, btn.md, "w-full")}>
-            Ask a question
-          </button>
+            Send an enquiry
+          </a>
+          <a
+            href={site.phoneHref}
+            aria-label={`Make an offer on the ${car.year} ${car.name} — call ${site.phone}`}
+            className={cx(btn.base, btn.ghost, btn.md, "w-full")}
+          >
+            Make an offer
+          </a>
         </div>
       </div>
     </Blueprint>
