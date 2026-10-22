@@ -42,7 +42,7 @@ app/manifest.ts          Web app manifest (home-screen icons)
 
 ## Chat flow
 
-Car card → "Request a callback" → first name → UK phone (validated). A valid number is posted immediately to `/api/callback` as `{ name, phone, vehicle, carId }`. There is no preferred-time step. The reply says the request is registered and that a call should start within a minute. After that, free-text questions go to `/api/chat`. There's also a general entry point (the floating Chat button) and a "Sell your car" flow.
+Car card → "Request a callback" → first name → UK phone (validated). A valid number is posted immediately to `/api/callback` as `{ name, phone, vehicle, carId }`. There is no preferred-time step. The reply says the request is registered. It does not promise that a call has started. After that, free-text questions go to `/api/chat`. There's also a general entry point (the floating Chat button) and a "Sell your car" flow.
 
 ## Before launch
 

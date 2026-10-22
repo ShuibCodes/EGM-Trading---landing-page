@@ -28,10 +28,10 @@ export function callbackPayload(input: { name?: string; phone?: string; vehicle?
   };
 }
 
-/** Says the request is registered. Does not claim a call has already been placed. */
+/** Says the request is registered. A call is not confirmed until AgentZero processes it. */
 export function registeredCallbackMessage(input: { name: string; phone: string; subject?: string | null }) {
   const subject = input.subject ? ` for ${input.subject}` : "";
-  return `Thanks, ${input.name}. Your callback request${subject} is registered. A call to ${input.phone} should start within a minute.`;
+  return `Thanks, ${input.name}. Your callback request${subject} is registered. We'll use ${input.phone} for the callback.`;
 }
 
 /** Stock callbacks store the catalogue car. Sell callbacks store the caller's description. */

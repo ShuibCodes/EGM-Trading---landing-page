@@ -40,8 +40,8 @@ describe("callbackPayload", () => {
 describe("registeredCallbackMessage", () => {
   it("registers the request without saying a call has been placed", () => {
     const message = registeredCallbackMessage({ name: "Sam", phone: "07911 123456", subject: "the Audi A4" });
-    expect(message).toBe("Thanks, Sam. Your callback request for the Audi A4 is registered. A call to 07911 123456 should start within a minute.");
-    expect(message).not.toMatch(/booked|placed|morning|afternoon|evening/i);
+    expect(message).toBe("Thanks, Sam. Your callback request for the Audi A4 is registered. We'll use 07911 123456 for the callback.");
+    expect(message).not.toMatch(/booked|placed|within a minute|morning|afternoon|evening/i);
   });
 });
 

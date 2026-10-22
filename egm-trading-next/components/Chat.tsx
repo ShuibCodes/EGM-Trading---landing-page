@@ -220,7 +220,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between gap-3 border-b border-line py-3 pl-4 pr-3">
               <div className="flex flex-col">
                 <span className="font-heading text-xl font-semibold uppercase tracking-[0.02em]">EGM Assistant</span>
-                <span className="text-xs text-ink/70">Calls start within a minute</span>
+                <span className="text-xs text-ink/70">Register a callback</span>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className={cx(btn.base, btn.ghost, "size-11 p-0 text-ink")}>
                 <XIcon size={22} />
