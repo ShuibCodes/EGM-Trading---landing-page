@@ -1,26 +1,21 @@
 import { NextResponse } from "next/server";
-
-const UK_PHONE = /^(\+44|0)\d{9,10}$/;
+import { createCallbackLead } from "@/lib/callback";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const phone = typeof body?.phone === "string" ? body.phone : "";
-  if (!body?.name || !UK_PHONE.test(phone.replace(/[\s()-]/g, ""))) {
-    return NextResponse.json({ ok: false, error: "Invalid lead" }, { status: 400 });
-  }
+  const supabase = createAdminClient();
 
-  const lead = {
-    name: String(body.name).slice(0, 80),
-    phone,
-    time: String(body.time ?? "").slice(0, 80),
-    mode: body.mode === "sell" ? "sell" : "buy",
-    carId: body.carId ?? null,
-    vehicle: body.vehicle ? String(body.vehicle).slice(0, 120) : null,
-    createdAt: new Date().toISOString(),
-  };
+  const result = await createCallbackLead(body, {
+    insert: async (row) => {
+      if (!supabase) return { error: { code: "unconfigured" } };
+      const { error } = await supabase.from("callback_requests").insert(row);
+      return { error: error ? { code: error.code } : null };
+    },
+  });
 
-  // TODO: deliver the lead — e.g. insert into a database, send an email/SMS, or post to the CRM.
-  console.log("[callback-request]", lead);
+  if (result.ok) return NextResponse.json({ ok: true });
 
-  return NextResponse.json({ ok: true });
+  const status = result.error === "already_requested" ? 409 : result.error === "unavailable" ? 503 : 400;
+  return NextResponse.json({ ok: false, error: result.error }, { status });
 }

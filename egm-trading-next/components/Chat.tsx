@@ -1,14 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { callbackPayload, registeredCallbackMessage } from "@/lib/callback";
 import { type Car, carMeta } from "@/lib/cars";
+import { normalizeUkPhone } from "@/lib/phone";
 import { btn, cx } from "@/lib/ui";
 import { ChatIcon, SendIcon, XIcon } from "./ui/icons";
 
 type Mode = "buy" | "sell";
-type Step = "intent" | "sellcar" | "name" | "phone" | "time" | "ask" | null;
+type Step = "intent" | "sellcar" | "name" | "phone" | "retry" | "ask" | null;
 type Msg = { from: "bot" | "user"; text: string };
-type Lead = { name?: string; phone?: string; time?: string; vehicle?: string };
+type Lead = { name?: string; phone?: string; vehicle?: string };
 type OpenOpts = { car?: Car | null; mode?: Mode; ask?: boolean };
 
 const ChatCtx = createContext<{ open: (o?: OpenOpts) => void }>({ open: () => {} });
@@ -24,9 +26,6 @@ export function ChatButton({ children, className, ...opts }: OpenOpts & { childr
   );
 }
 
-const UK_PHONE = /^(\+44|0)\d{9,10}$/;
-const WHEN: Record<string, string> = { morning: "in the morning", afternoon: "in the afternoon", evening: "in the evening" };
-
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setOpen] = useState(false);
   const [car, setCar] = useState<Car | null>(null);
@@ -39,6 +38,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const busy = useRef(false);
+  const session = useRef(0);
+  const registered = useRef(false);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -56,6 +58,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setTyping(true);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      busy.current = false;
       setTyping(false);
       setMsgs((m) => [...m, ...[texts].flat().map((text) => ({ from: "bot" as const, text }))]);
       if (next !== undefined) setStep(next);
@@ -64,6 +67,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback(
     ({ car = null, mode = "buy", ask = false }: OpenOpts = {}) => {
+      session.current += 1;
+      busy.current = false;
+      registered.current = false;
+      clearTimeout(timer.current);
+      setTyping(false);
       setOpen(true);
       setCar(car);
       setMode(mode);
@@ -72,7 +80,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setDraft("");
       setStep(null);
       if (car && ask) bot(`Ask me anything about the ${car.year} ${car.name}.`, "ask");
-      else if (car) bot([`The ${car.year} ${car.name} at ${car.price} — good choice.`, "Leave your details and one of the team will call you back.", "What's your first name?"], "name");
+      else if (car) bot([`The ${car.year} ${car.name} at ${car.price} — good choice.`, "Leave your details and we'll register a callback.", "What's your first name?"], "name");
       else if (mode === "sell") bot(["We buy most pre-owned cars across London.", "What are you selling? A reg or make and model is fine."], "sellcar");
       else bot("Hi, I'm the EGM Trading assistant. How can I help?", "intent");
     },
@@ -90,15 +98,54 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
       reply = (await r.json()).reply;
     } catch {}
-    if (!reply) reply = booked ? "Good question — I've noted it for the team so they can answer on your call." : "Good question — the team can answer that properly. Want me to book you a callback?";
+    if (!reply) reply = booked ? "Good question — I've noted it for the team so they can answer on your call." : "Good question — the team can answer that properly. Want me to request a callback?";
     setTyping(false);
     setMsgs((m) => [...m, { from: "bot", text: reply }]);
     setStep("ask");
   };
 
+  const register = (booked: Lead) => {
+    const name = booked.name;
+    const phone = booked.phone;
+    if (!name || !phone) return bot("What's your first name?", "name");
+    const subject = car ? `the ${car.name}` : mode === "sell" && booked.vehicle ? `your ${booked.vehicle}` : null;
+    const ticket = session.current;
+    busy.current = true;
+    setTyping(true);
+    void (async () => {
+      let error = "";
+      try {
+        const response = await fetch("/api/callback", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(callbackPayload({ name, phone, vehicle: booked.vehicle, carId: car?.id ?? null })),
+        });
+        if (!response.ok) error = (await response.json().catch(() => null))?.error ?? "unavailable";
+      } catch {
+        error = "unavailable";
+      }
+      if (ticket !== session.current) return;
+      if (!error) {
+        registered.current = true;
+        return bot([registeredCallbackMessage({ name, phone, subject }), "Anything you want to know in the meantime?"], "ask");
+      }
+      if (error === "already_requested") {
+        registered.current = true;
+        return bot("We've already got a callback request for this number today.", "ask");
+      }
+      if (error === "invalid_phone") {
+        return bot("That doesn't look like a UK number — could you check it?", "phone");
+      }
+      if (error === "invalid_name") {
+        return bot("What's your first name?", "name");
+      }
+      return bot("Sorry, that didn't go through. Please try again in a moment.", "retry");
+    })();
+  };
+
   const submit = (raw: string) => {
     const text = raw.trim();
-    if (!text || typing) return;
+    if (!text || typing || busy.current) return;
     setMsgs((m) => [...m, { from: "user", text }]);
     setDraft("");
     const next = { ...lead };
@@ -121,34 +168,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setLead({ ...next, name });
         return bot(`Thanks, ${name}. What's the best number to reach you on?`, "phone");
       }
-      case "phone":
-        if (!UK_PHONE.test(text.replace(/[\s()-]/g, ""))) return bot("That doesn't look like a UK number — could you check it?", "phone");
-        setLead({ ...next, phone: text });
-        return bot("When's best for a call?", "time");
-      case "time": {
-        const booked = { ...next, time: text };
+      case "phone": {
+        if (!normalizeUkPhone(text)) return bot("That doesn't look like a UK number — could you check it?", "phone");
+        const booked = { ...next, phone: text };
         setLead(booked);
-        const when = WHEN[text.toLowerCase()] ?? (/soon|asap|now/i.test(text) ? "as soon as we can" : text);
-        const about = car ? ` about the ${car.name}` : mode === "sell" && booked.vehicle ? ` with an offer for your ${booked.vehicle}` : "";
-        fetch("/api/callback", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...booked, mode, carId: car?.id ?? null }),
-        }).catch(() => {});
-        return bot([`You're booked in. ${booked.name}, we'll call ${booked.phone} ${when}${about}.`, "Anything you want to know in the meantime?"], "ask");
+        register(booked);
+        return;
       }
+      case "retry":
+        register(next);
+        return;
       default:
-        ask(text, !!next.phone);
+        ask(text, registered.current);
     }
   };
 
   let chips: string[] = [];
   if (!typing) {
     if (step === "intent") chips = ["Request a callback", "Sell my car", "Ask a question"];
-    else if (step === "time") chips = ["Morning", "Afternoon", "Evening", "As soon as possible"];
+    else if (step === "retry") chips = ["Try again"];
     else if (step === "ask" && !lead.phone) chips = ["Request a callback"];
   }
-  const placeholder = ({ name: "First name", phone: "Mobile number", sellcar: "e.g. 2018 Ford Focus", time: "Or type a time" } as Record<string, string>)[step ?? ""] ?? "Type a message";
+  const placeholder = ({ name: "First name", phone: "Mobile number", sellcar: "e.g. 2018 Ford Focus", retry: "Try again" } as Record<string, string>)[step ?? ""] ?? "Type a message";
 
   return (
     <ChatCtx.Provider value={{ open }}>
@@ -178,7 +219,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between gap-3 border-b border-line py-3 pl-4 pr-3">
               <div className="flex flex-col">
                 <span className="font-heading text-xl font-semibold uppercase tracking-[0.02em]">EGM Assistant</span>
-                <span className="text-xs text-ink/70">Callbacks usually same day</span>
+                <span className="text-xs text-ink/70">Calls start within a minute</span>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className={cx(btn.base, btn.ghost, "size-11 p-0 text-ink")}>
                 <XIcon size={22} />

@@ -22,7 +22,7 @@ app/
   page.tsx               Nav → Hero → Stock → Sell → Footer, wrapped in ChatProvider
   globals.css            Design tokens (@theme) + base styles
   api/chat/route.ts      AI answers to free-text questions (Anthropic Messages API)
-  api/callback/route.ts  Receives callback leads — TODO: wire to email/CRM
+  api/callback/route.ts  Validates a callback and inserts callback_requests
 components/
   Chat.tsx               ChatProvider, useChat(), <ChatButton>, floating button + panel
   CarCard.tsx            Swipe carousel (scroll-snap) + callback CTA
@@ -42,7 +42,7 @@ app/manifest.ts          Web app manifest (home-screen icons)
 
 ## Chat flow
 
-Car card → "Request a callback" → first name → UK phone (validated) → preferred time → confirmation, and the lead is POSTed to `/api/callback`. After booking, free-text questions go to `/api/chat`. There's also a general entry point (the floating Chat button) and a "Sell your car" flow.
+Car card → "Request a callback" → first name → UK phone (validated). A valid number is posted immediately to `/api/callback` as `{ name, phone, vehicle, carId }`. There is no preferred-time step. The reply says the request is registered and that a call should start within a minute. After that, free-text questions go to `/api/chat`. There's also a general entry point (the floating Chat button) and a "Sell your car" flow.
 
 ## Before launch
 
@@ -51,4 +51,4 @@ Car card → "Request a callback" → first name → UK phone (validated) → pr
 - [ ] Real prices, mileage and specs in `lib/cars.ts` (or load them from a feed)
 - [ ] Deliver leads from `app/api/callback/route.ts` (DB, email, SMS or CRM)
 - [ ] Rate-limit both API routes
-- [ ] Analytics events on `open` (Chat.tsx) and successful callback bookings
+- [ ] Analytics events on `open` (Chat.tsx) and successful callback requests
