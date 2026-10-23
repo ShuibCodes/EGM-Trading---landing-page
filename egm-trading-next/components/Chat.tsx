@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { callbackPayload, registeredCallbackMessage } from "@/lib/callback";
+import { HONEYPOT_FIELD, type ChatStep, callbackOutcome, callbackPayload, chatOpening } from "@/lib/callback";
 import { type Car, carMeta } from "@/lib/cars";
 import { normalizeUkPhone } from "@/lib/phone";
 import { site } from "@/lib/site";
@@ -9,7 +9,7 @@ import { btn, cx } from "@/lib/ui";
 import { ChatIcon, SendIcon, XIcon } from "./ui/icons";
 
 type Mode = "buy" | "sell";
-type Step = "intent" | "sellcar" | "name" | "phone" | "retry" | "ask" | null;
+type Step = ChatStep | null;
 type Msg = { from: "bot" | "user"; text: string };
 type Lead = { name?: string; phone?: string; vehicle?: string };
 type OpenOpts = { car?: Car | null; mode?: Mode; ask?: boolean };
@@ -18,10 +18,10 @@ const ChatCtx = createContext<{ open: (o?: OpenOpts) => void }>({ open: () => {}
 export const useChat = () => useContext(ChatCtx);
 
 /** Any button that opens the assistant (works inside server components). */
-export function ChatButton({ children, className, ...opts }: OpenOpts & { children: ReactNode; className?: string }) {
+export function ChatButton({ children, className, label, ...opts }: OpenOpts & { children: ReactNode; className?: string; label?: string }) {
   const { open } = useChat();
   return (
-    <button type="button" className={className} onClick={() => open(opts)}>
+    <button type="button" aria-label={label} aria-haspopup="dialog" className={className} onClick={() => open(opts)}>
       {children}
     </button>
   );
@@ -39,6 +39,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const honeypot = useRef<HTMLInputElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const busy = useRef(false);
   const session = useRef(0);
   const registered = useRef(false);
@@ -49,11 +52,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
-    if (!isOpen) return;
+    if (!isOpen) {
+      opener.current?.focus();
+      opener.current = null;
+      return;
+    }
+    inputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (step === "done") closeRef.current?.focus();
+  }, [step]);
 
   const bot = useCallback((texts: string | string[], next?: Step) => {
     setTyping(true);
@@ -68,6 +80,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback(
     ({ car = null, mode = "buy", ask = false }: OpenOpts = {}) => {
+      if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement;
       session.current += 1;
       busy.current = false;
       registered.current = false;
@@ -80,10 +93,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setLead({});
       setDraft("");
       setStep(null);
-      if (car && ask) bot(`Ask me anything about the ${car.year} ${car.name}.`, "ask");
-      else if (car) bot([`The ${car.year} ${car.name} at ${car.price} — good choice.`, "Leave your details and we'll register a callback.", "What's your first name?"], "name");
-      else if (mode === "sell") bot(["We buy most pre-owned cars across London.", "What are you selling? A reg or make and model is fine."], "sellcar");
-      else bot("Hi, I'm the EGM Trading assistant. How can I help?", "intent");
+      const opening = chatOpening({ car, mode, ask }, site.chat);
+      bot(opening.texts, opening.step);
     },
     [bot]
   );
@@ -119,28 +130,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/callback", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(callbackPayload({ name, phone, vehicle: booked.vehicle, carId: car?.id ?? null })),
+          body: JSON.stringify(
+            callbackPayload({ name, phone, vehicle: booked.vehicle, carId: car?.id ?? null, website: honeypot.current?.value }),
+          ),
         });
         if (!response.ok) error = (await response.json().catch(() => null))?.error ?? "unavailable";
       } catch {
         error = "unavailable";
       }
       if (ticket !== session.current) return;
-      if (!error) {
-        registered.current = true;
-        return bot([registeredCallbackMessage({ name, phone, subject }), "Anything you want to know in the meantime?"], "ask");
-      }
-      if (error === "already_requested") {
-        registered.current = true;
-        return bot("We've already got a callback request for this number today.", "ask");
-      }
-      if (error === "invalid_phone") {
-        return bot("That doesn't look like a UK number — could you check it?", "phone");
-      }
-      if (error === "invalid_name") {
-        return bot("What's your first name?", "name");
-      }
-      return bot("Sorry, that didn't go through. Please try again in a moment.", "retry");
+      const outcome = callbackOutcome(error, { name, phone, subject }, site.chat);
+      if (outcome.registered) registered.current = true;
+      return bot(outcome.texts, outcome.step);
     })();
   };
 
@@ -180,7 +181,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         register(next);
         return;
       default:
-        ask(text, registered.current);
+        if (site.chat) ask(text, registered.current);
     }
   };
 
@@ -222,7 +223,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 <span className="font-heading text-xl font-semibold uppercase tracking-[0.02em]">EGM Assistant</span>
                 <span className="text-xs text-ink/70">Register a callback</span>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className={cx(btn.base, btn.ghost, "size-11 p-0 text-ink")}>
+              <button ref={closeRef} type="button" onClick={() => setOpen(false)} aria-label="Close chat" className={cx(btn.base, btn.ghost, "size-11 p-0 text-ink")}>
                 <XIcon size={22} />
               </button>
             </div>
@@ -260,30 +261,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               </div>
             )}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit(draft);
-                inputRef.current?.focus();
-              }}
-              className="flex gap-2 border-t border-line p-3 pb-[calc(12px+env(safe-area-inset-bottom))]"
-            >
-              {/* 16px text stops iOS zooming on focus */}
-              <input
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                type={step === "phone" ? "tel" : "text"}
-                inputMode={step === "phone" ? "tel" : "text"}
-                autoComplete={step === "phone" ? "tel" : step === "name" ? "given-name" : "off"}
-                placeholder={placeholder}
-                aria-label="Message"
-                className="min-h-12 flex-1 border border-line bg-surface px-2.5 text-base text-ink caret-steel hover:border-ink/45 focus-visible:border-steel focus-visible:outline-offset-0"
-              />
-              <button type="submit" aria-label="Send" className={cx(btn.base, btn.primary, "size-12 flex-none p-0")}>
-                <SendIcon />
-              </button>
-            </form>
+            {step !== "done" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submit(draft);
+                  inputRef.current?.focus();
+                }}
+                className="flex gap-2 border-t border-line p-3 pb-[calc(12px+env(safe-area-inset-bottom))]"
+              >
+                {/* Kept off-screen rather than display:none, which some bots skip. */}
+                <div aria-hidden="true" className="absolute -left-[9999px] size-px overflow-hidden">
+                  <label>
+                    Website
+                    <input ref={honeypot} name={HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+                  </label>
+                </div>
+                {/* 16px text stops iOS zooming on focus */}
+                <input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  type={step === "phone" ? "tel" : "text"}
+                  inputMode={step === "phone" ? "tel" : "text"}
+                  autoComplete={step === "phone" ? "tel" : step === "name" ? "given-name" : "off"}
+                  placeholder={placeholder}
+                  aria-label={placeholder}
+                  className="min-h-12 flex-1 border border-line bg-surface px-2.5 text-base text-ink caret-steel hover:border-ink/45 focus-visible:border-steel focus-visible:outline-offset-0"
+                />
+                <button type="submit" aria-label="Send" className={cx(btn.base, btn.primary, "size-12 flex-none p-0")}>
+                  <SendIcon />
+                </button>
+              </form>
+            )}
           </div>
         </>
       )}

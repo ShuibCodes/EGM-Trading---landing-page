@@ -26,6 +26,23 @@ describe("POST /api/callback", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it("returns 400 and does not insert when the honeypot is filled", async () => {
+    const insert = vi.fn();
+    createAdminClient.mockReturnValue({ from: () => ({ insert }) });
+    const response = await post({ name: "Sam", phone: "020 7946 0123", website: "http://spam.example" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ ok: false, error: "invalid_request" });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 without detail for other database errors", async () => {
+    const insert = vi.fn(async () => ({ error: { code: "42501", message: "permission denied for table callback_requests" } }));
+    createAdminClient.mockReturnValue({ from: () => ({ insert }) });
+    const response = await post({ name: "Sam", phone: "020 7946 0123" });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ ok: false, error: "unavailable" });
+  });
+
   it("returns 200 when the row is inserted", async () => {
     const insert = vi.fn(async () => ({ error: null }));
     createAdminClient.mockReturnValue({ from: () => ({ insert }) });

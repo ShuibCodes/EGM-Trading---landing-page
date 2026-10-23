@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { callbackPayload, createCallbackLead, registeredCallbackMessage, resolveVehicle } from "./callback";
+import { callbackOutcome, callbackPayload, chatOpening, createCallbackLead, registeredCallbackMessage, resolveVehicle } from "./callback";
+import { cars } from "./cars";
 
 const phone = "07911 123456";
 
@@ -30,10 +31,76 @@ describe("callbackPayload", () => {
       phone: "07911 123456",
       vehicle: "2018 Ford Focus",
       carId: "audi-a4",
+      website: "",
     });
     const payload = callbackPayload({ name: "Sam", phone: "07911 123456" });
     expect(payload).not.toHaveProperty("time");
     expect(payload).not.toHaveProperty("mode");
+  });
+
+  it("forwards the hidden honeypot value", () => {
+    expect(callbackPayload({ name: "Sam", phone, website: "http://spam.example" })).toMatchObject({ website: "http://spam.example" });
+  });
+});
+
+describe("chatOpening", () => {
+  const car = cars.find((item) => item.id === "audi-a4")!;
+
+  it("goes straight to the callback form from a car when free-text chat is off", () => {
+    expect(chatOpening({ car }, false)).toEqual({
+      texts: [`The 2019 Audi A4 at ${car.price} — good choice.`, "Leave your details and we'll register a callback.", "What's your first name?"],
+      step: "name",
+    });
+  });
+
+  it("never opens the question step when free-text chat is off", () => {
+    expect(chatOpening({ car, ask: true }, false).step).toBe("name");
+    expect(chatOpening({}, false)).toEqual({ texts: ["Leave your details and we'll register a callback.", "What's your first name?"], step: "name" });
+  });
+
+  it("keeps the assistant openers when free-text chat is on", () => {
+    expect(chatOpening({ car, ask: true }, true).step).toBe("ask");
+    expect(chatOpening({}, true).step).toBe("intent");
+    expect(chatOpening({ mode: "sell" }, true).step).toBe("sellcar");
+  });
+});
+
+describe("callbackOutcome", () => {
+  const input = { name: "Sam", phone, subject: "the Audi A4" };
+
+  it("ends the callback form after a save when free-text chat is off", () => {
+    expect(callbackOutcome("", input, false)).toEqual({ texts: [registeredCallbackMessage(input)], step: "done", registered: true });
+  });
+
+  it("offers questions after a save only when free-text chat is on", () => {
+    expect(callbackOutcome("", input, true)).toEqual({
+      texts: [registeredCallbackMessage(input), "Anything you want to know in the meantime?"],
+      step: "ask",
+      registered: true,
+    });
+  });
+
+  it("shows the duplicate message without asking for details again", () => {
+    expect(callbackOutcome("already_requested", input, false)).toEqual({
+      texts: ["We've already got a callback request for this number today."],
+      step: "done",
+      registered: true,
+    });
+  });
+
+  it("sends validation errors back to the matching step", () => {
+    expect(callbackOutcome("invalid_phone", input, false)).toMatchObject({ step: "phone", registered: false });
+    expect(callbackOutcome("invalid_name", input, false)).toMatchObject({ step: "name", registered: false });
+  });
+
+  it("uses one generic retry message for failures, rejected requests, and rate limits", () => {
+    for (const error of ["unavailable", "invalid_request", "rate_limited"]) {
+      expect(callbackOutcome(error, input, false)).toEqual({
+        texts: ["Sorry, that didn't go through. Please try again in a moment."],
+        step: "retry",
+        registered: false,
+      });
+    }
   });
 });
 
@@ -61,6 +128,23 @@ describe("createCallbackLead", () => {
     const insert = db();
     await createCallbackLead({ name: "Sam", phone, carId: "honda-civic" }, insert);
     expect(insert.insert).toHaveBeenCalledWith(expect.objectContaining({ vehicle: "2012 Honda Civic" }));
+  });
+
+  it("rejects a filled honeypot without inserting", async () => {
+    const insert = db();
+    expect(await createCallbackLead({ name: "Sam", phone, website: "http://spam.example" }, insert)).toEqual({
+      ok: false,
+      error: "invalid_request",
+    });
+    expect(await createCallbackLead({ name: "Sam", phone, website: 1 }, insert)).toEqual({ ok: false, error: "invalid_request" });
+    expect(insert.insert).not.toHaveBeenCalled();
+  });
+
+  it("accepts an empty or missing honeypot", async () => {
+    const insert = db();
+    expect(await createCallbackLead({ name: "Sam", phone, website: "" }, insert)).toEqual({ ok: true });
+    expect(await createCallbackLead({ name: "Sam", phone }, insert)).toEqual({ ok: true });
+    expect(insert.insert).toHaveBeenCalledTimes(2);
   });
 
   it("rejects an empty name or invalid phone before insert", async () => {
