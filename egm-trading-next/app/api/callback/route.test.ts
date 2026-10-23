@@ -26,7 +26,7 @@ describe("POST /api/callback", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("returns 400 and does not insert when the honeypot is filled", async () => {
+  it("returns 400 and does not insert when the honeypot is filled, so the insert webhook cannot run", async () => {
     const insert = vi.fn();
     createAdminClient.mockReturnValue({ from: () => ({ insert }) });
     const response = await post({ name: "Sam", phone: "020 7946 0123", website: "http://spam.example" });
@@ -58,6 +58,14 @@ describe("POST /api/callback", () => {
     const response = await post({ name: "Sam", phone: "+447911123456" });
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ ok: false, error: "already_requested" });
+  });
+
+  it("has no rate limiter: two valid posts both attempt an insert", async () => {
+    const insert = vi.fn(async () => ({ error: null }));
+    createAdminClient.mockReturnValue({ from: () => ({ insert }) });
+    expect((await post({ name: "Sam", phone: "020 7946 0123" })).status).toBe(200);
+    expect((await post({ name: "Sam", phone: "07400 123456" })).status).toBe(200);
+    expect(insert).toHaveBeenCalledTimes(2);
   });
 
   it("returns 503 when storage is not configured", async () => {

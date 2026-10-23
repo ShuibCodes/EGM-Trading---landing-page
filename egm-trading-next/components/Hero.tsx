@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { site } from "@/lib/site";
 import { btn, cx, duotone } from "@/lib/ui";
+import { ChatButton } from "./Chat";
 import { PhoneIcon } from "./ui/icons";
 
 export function Hero() {
@@ -31,6 +32,12 @@ export function Hero() {
             <PhoneIcon size={18} />
             Send an enquiry
           </a>
+          <ChatButton
+            label="Request a callback"
+            className={cx(btn.base, btn.lg, "max-w-[260px] flex-[1_1_160px] border-paper/60 text-paper hover:bg-paper/10 hover:text-paper active:bg-paper/20")}
+          >
+            Request a callback
+          </ChatButton>
         </div>
       </div>
     </section>

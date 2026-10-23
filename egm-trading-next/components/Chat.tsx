@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { HONEYPOT_FIELD, type ChatStep, callbackOutcome, callbackPayload, chatOpening } from "@/lib/callback";
+import { dialogFocusables, dialogKey, initialDialogFocus, rememberOpener, tabDestination } from "@/lib/dialogFocus";
 import { type Car, carMeta } from "@/lib/cars";
 import { normalizeUkPhone } from "@/lib/phone";
 import { site } from "@/lib/site";
@@ -12,7 +13,7 @@ type Mode = "buy" | "sell";
 type Step = ChatStep | null;
 type Msg = { from: "bot" | "user"; text: string };
 type Lead = { name?: string; phone?: string; vehicle?: string };
-type OpenOpts = { car?: Car | null; mode?: Mode; ask?: boolean };
+type OpenOpts = { car?: Car | null; mode?: Mode; ask?: boolean; opener?: HTMLElement | null };
 
 const ChatCtx = createContext<{ open: (o?: OpenOpts) => void }>({ open: () => {} });
 export const useChat = () => useContext(ChatCtx);
@@ -21,7 +22,13 @@ export const useChat = () => useContext(ChatCtx);
 export function ChatButton({ children, className, label, ...opts }: OpenOpts & { children: ReactNode; className?: string; label?: string }) {
   const { open } = useChat();
   return (
-    <button type="button" aria-label={label} aria-haspopup="dialog" className={className} onClick={() => open(opts)}>
+    <button
+      type="button"
+      aria-label={label}
+      aria-haspopup="dialog"
+      className={className}
+      onClick={(event) => open({ ...opts, opener: event.currentTarget instanceof HTMLElement ? event.currentTarget : null })}
+    >
       {children}
     </button>
   );
@@ -38,6 +45,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const listRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const honeypot = useRef<HTMLInputElement>(null);
@@ -57,14 +65,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       opener.current = null;
       return;
     }
-    inputRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const dialog = dialogRef.current;
+    initialDialogFocus(dialog ? dialogFocusables(dialog) : [], inputRef.current)?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      const action = dialogKey(event.key, event.shiftKey);
+      if (!action || !dialogRef.current) return;
+      if (action.type === "close") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      const items = dialogFocusables(dialogRef.current);
+      const current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const next = tabDestination(items, current, action.shiftKey);
+      if (!next) return;
+      event.preventDefault();
+      next.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
   useEffect(() => {
-    if (step === "done") closeRef.current?.focus();
+    if (step !== "done" || !dialogRef.current) return;
+    initialDialogFocus(dialogFocusables(dialogRef.current), closeRef.current)?.focus();
   }, [step]);
 
   const bot = useCallback((texts: string | string[], next?: Step) => {
@@ -79,8 +103,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const open = useCallback(
-    ({ car = null, mode = "buy", ask = false }: OpenOpts = {}) => {
-      if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement;
+    ({ car = null, mode = "buy", ask = false, opener: clicked }: OpenOpts = {}) => {
+      const active = clicked ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+      const next = rememberOpener(active, !!active && (dialogRef.current?.contains(active) ?? false));
+      if (next) opener.current = next;
       session.current += 1;
       busy.current = false;
       registered.current = false;
@@ -195,7 +221,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   return (
     <ChatCtx.Provider value={{ open }}>
-      {children}
+      <div inert={isOpen ? true : undefined}>{children}</div>
 
       {site.chat && !isOpen && (
         <button
@@ -211,8 +237,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       {isOpen && (
         <>
-          <div onClick={() => setOpen(false)} className="fixed inset-0 z-45 bg-steel-900/35" />
+          <div onClick={() => setOpen(false)} aria-hidden="true" className="fixed inset-0 z-45 bg-steel-900/35" />
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="EGM Trading assistant"

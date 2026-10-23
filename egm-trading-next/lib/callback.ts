@@ -56,7 +56,7 @@ export function chatOpening(opts: { car?: Car | null; mode?: "buy" | "sell"; ask
   return { texts: ["Leave your details and we'll register a callback.", "What's your first name?"], step: "name" };
 }
 
-/** Bot turn after POST /api/callback. Any unrecognised error, including 429, gets the generic retry message. */
+/** Bot turn after POST /api/callback. An unrecognised error string, including one this route does not produce, gets the generic retry message. */
 export function callbackOutcome(
   error: string,
   input: { name: string; phone: string; subject?: string | null },

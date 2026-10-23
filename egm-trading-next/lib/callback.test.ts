@@ -53,6 +53,13 @@ describe("chatOpening", () => {
     });
   });
 
+  it("starts the sell flow even when free-text chat is off", () => {
+    expect(chatOpening({ mode: "sell" }, false)).toEqual({
+      texts: ["We buy most pre-owned cars across London.", "What are you selling? A reg or make and model is fine."],
+      step: "sellcar",
+    });
+  });
+
   it("never opens the question step when free-text chat is off", () => {
     expect(chatOpening({ car, ask: true }, false).step).toBe("name");
     expect(chatOpening({}, false)).toEqual({ texts: ["Leave your details and we'll register a callback.", "What's your first name?"], step: "name" });
@@ -93,14 +100,23 @@ describe("callbackOutcome", () => {
     expect(callbackOutcome("invalid_name", input, false)).toMatchObject({ step: "name", registered: false });
   });
 
-  it("uses one generic retry message for failures, rejected requests, and rate limits", () => {
-    for (const error of ["unavailable", "invalid_request", "rate_limited"]) {
+  it("uses one generic retry message for storage failures and rejected requests", () => {
+    for (const error of ["unavailable", "invalid_request"]) {
       expect(callbackOutcome(error, input, false)).toEqual({
         texts: ["Sorry, that didn't go through. Please try again in a moment."],
         step: "retry",
         registered: false,
       });
     }
+  });
+
+  it("maps a hypothetical rate_limited error string to the same retry message", () => {
+    // The callback route does not rate-limit and does not return this error.
+    expect(callbackOutcome("rate_limited", input, false)).toEqual({
+      texts: ["Sorry, that didn't go through. Please try again in a moment."],
+      step: "retry",
+      registered: false,
+    });
   });
 });
 
@@ -130,7 +146,7 @@ describe("createCallbackLead", () => {
     expect(insert.insert).toHaveBeenCalledWith(expect.objectContaining({ vehicle: "2012 Honda Civic" }));
   });
 
-  it("rejects a filled honeypot without inserting", async () => {
+  it("rejects a filled honeypot before insert, so no row is written", async () => {
     const insert = db();
     expect(await createCallbackLead({ name: "Sam", phone, website: "http://spam.example" }, insert)).toEqual({
       ok: false,
