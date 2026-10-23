@@ -22,7 +22,7 @@ app/
   page.tsx               Nav → Hero → Stock → Sell → Footer, wrapped in ChatProvider
   globals.css            Design tokens (@theme) + base styles
   api/chat/route.ts      AI answers to free-text questions (Anthropic Messages API)
-  api/callback/route.ts  Receives callback leads — TODO: wire to email/CRM
+  api/callback/route.ts  Validates a callback and inserts callback_requests
 components/
   Chat.tsx               ChatProvider, useChat(), <ChatButton>, floating button + panel
   CarCard.tsx            Swipe carousel (scroll-snap) + callback CTA
@@ -42,7 +42,11 @@ app/manifest.ts          Web app manifest (home-screen icons)
 
 ## Chat flow
 
-Car card → "Request a callback" → first name → UK phone (validated) → preferred time → confirmation, and the lead is POSTed to `/api/callback`. After booking, free-text questions go to `/api/chat`. There's also a general entry point (the floating Chat button) and a "Sell your car" flow.
+Car card, the hero, or the sell section → "Request a callback" → first name → UK phone (validated). A car card is about that car. The hero is a general callback. The sell section asks what is being sold first. A valid number is posted immediately to `/api/callback` as `{ name, phone, vehicle, carId, website }`, where `website` is an empty hidden honeypot. There is no preferred-time step. The reply says the request is registered. It does not promise that a call has started.
+
+The panel is a modal: Tab stays inside it, Escape closes it, and focus returns to the button that opened it. The page behind it is inert while it is open.
+
+With `site.chat` off (the current setting), the panel only collects the callback: it ends after the result and never sends free text to `/api/chat`. With `site.chat` on, free-text questions go to `/api/chat`, and the floating Chat button is available. The sell callback is available either way.
 
 ## Before launch
 
@@ -51,4 +55,4 @@ Car card → "Request a callback" → first name → UK phone (validated) → pr
 - [ ] Real prices, mileage and specs in `lib/cars.ts` (or load them from a feed)
 - [ ] Deliver leads from `app/api/callback/route.ts` (DB, email, SMS or CRM)
 - [ ] Rate-limit both API routes
-- [ ] Analytics events on `open` (Chat.tsx) and successful callback bookings
+- [ ] Analytics events on `open` (Chat.tsx) and successful callback requests

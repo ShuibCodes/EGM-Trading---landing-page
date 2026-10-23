@@ -37,7 +37,7 @@ Entry points → opening script:
 - "Sell your car" / "Get an offer" → "What are you selling?" → name flow.
 - Floating button → chips: Request a callback / Sell my car / Ask a question.
 
-Flow: `name → phone (UK regex /^(\+44|0)\d{9,10}$/ after stripping spaces/()-) → time (chips: Morning / Afternoon / Evening / As soon as possible) → confirmation → ask`. On confirmation POST `/api/callback` `{name, phone, time, mode, carId, vehicle}`. Free text in `ask` step → POST `/api/chat` → `{reply}`; AI is instructed never to invent mileage/history/finance. If not yet booked, a "Request a callback" chip stays visible.
+Flow: `name → phone (validated UK mobile or landline) → ask`. There is no preferred-time step. A valid number is posted immediately to `/api/callback` as `{ name, phone, vehicle, carId }`. The reply says the request is registered. It does not promise that a call has started. Free text in `ask` step → POST `/api/chat` → `{reply}`; AI is instructed never to invent mileage/history/finance. If a callback is not yet registered, a "Request a callback" chip stays visible.
 Bot messages: hairline bubble on `surface`, left. User: `steel-700` fill, paper text, right. Bot delay 650ms with "Typing…" indicator. Input is 16px (prevents iOS zoom), `type="tel"` on phone step.
 
 ## Design system (Industry)

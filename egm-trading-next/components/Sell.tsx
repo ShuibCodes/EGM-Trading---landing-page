@@ -1,5 +1,6 @@
 import { site } from "@/lib/site";
 import { btn, container, cx, kicker } from "@/lib/ui";
+import { ChatButton } from "./Chat";
 import { Blueprint } from "./ui/Blueprint";
 import { PhoneIcon } from "./ui/icons";
 
@@ -25,7 +26,7 @@ export function Sell() {
             </div>
           </div>
         ))}
-        <div className="flex items-center p-5">
+        <div className="flex flex-col justify-center gap-2 p-5">
           <a
             href={site.phoneHref}
             aria-label={`Send an enquiry about selling your car — call ${site.phone}`}
@@ -34,6 +35,13 @@ export function Sell() {
             <PhoneIcon size={18} />
             Send an enquiry
           </a>
+          <ChatButton
+            mode="sell"
+            label="Request a callback about selling your car"
+            className={cx(btn.base, btn.secondary, "min-h-[50px] w-full text-base")}
+          >
+            Request a callback
+          </ChatButton>
         </div>
       </Blueprint>
     </section>

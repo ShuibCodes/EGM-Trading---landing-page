@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { type Car, carMeta } from "@/lib/cars";
 import { site } from "@/lib/site";
 import { btn, cx } from "@/lib/ui";
+import { ChatButton } from "./Chat";
 import { Blueprint } from "./ui/Blueprint";
 import { ChevronLeft, ChevronRight, PhoneIcon } from "./ui/icons";
 
@@ -97,6 +98,13 @@ export function CarCard({ car, priority }: { car: Car; priority?: boolean }) {
           >
             Make an offer
           </a>
+          <ChatButton
+            car={car}
+            label={`Request a callback about the ${car.year} ${car.name}`}
+            className={cx(btn.base, btn.secondary, btn.md, "w-full")}
+          >
+            Request a callback
+          </ChatButton>
         </div>
       </div>
     </Blueprint>
